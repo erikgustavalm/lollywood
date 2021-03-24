@@ -16,28 +16,29 @@ extern char *strdup(const char *);
 
 uint16_t line_nr;
 
-enum tag{T_SYMB, T_OPAR, T_CPAR, T_PUNC, T_ATOM, T_TICK, T_INT, T_FLOAT, T_STR};
-
 struct token {
     char *data;
     struct token *next;
     uint16_t line;
-    enum tag type;
+    char type;
 };
 
 static
-void cut(struct token **last, char *buf, int *i, enum tag type)
+void cut(struct token **last, char *buf, int *i, char type)
 {
     buf[*i] = '\0';
 
     (*last)->data = strdup(buf);
+    (*last)->type = type;
+    (*last)->line = line_nr;
     struct token *new = malloc(sizeof(struct token));
     *new = (struct token) {
 	.data = NULL,
 	.next = NULL,
-	.line = line_nr,
-	.type = type
+	.line = 0,
+	.type = 0
     };
+
     (*last)->next = new;
     *last = new;
 
@@ -69,6 +70,7 @@ char next_state(char curr_state, char c, struct token **last, char *buf, int *i)
 	    return 0;
 	case '\0':
 	    (*last)->data = strdup("ACC");
+	    (*last)->type = T_EOF;
 	    return ACC;
 	default:
 	    if (isdigit(c)) {
@@ -79,13 +81,26 @@ char next_state(char curr_state, char c, struct token **last, char *buf, int *i)
 		buf[(*i)++] = c;
 		return 8;
 	    }
+	    if (c == '\"') {
+		return 11;
+	    }
 
 	    UNACC(last, c, line_nr);
 	    return -1;
 	}
 
     case 1: // Start of a sexp
-	if (c == '(' || c == '\'' || c == ')') {
+	if (c == '(') {
+	    buf[(*i)++] = c;
+	    cut(last, buf, i, T_OPAR);
+	    return 0;
+	}
+	if (c == '\'') {
+	    buf[(*i)++] = c;
+	    cut(last, buf, i, T_TICK);
+	    return 0;
+	}
+	if (c == ')') {
 	    buf[(*i)++] = c;
 	    cut(last, buf, i, T_CPAR);
 	    return 0;
@@ -118,6 +133,9 @@ char next_state(char curr_state, char c, struct token **last, char *buf, int *i)
 	if (c == '-') {
 	    buf[(*i)++] = c;
 	    return 8;
+	}
+	if (c == '\"') {
+	    return 11;
 	}
 	UNACC(last, c, line_nr);
 	return -1;
@@ -227,6 +245,9 @@ char next_state(char curr_state, char c, struct token **last, char *buf, int *i)
 	    buf[(*i)++] = c;
 	    return 8;
 	}
+	if (c == '\"') {
+	    return 11;
+	}
 	UNACC(last, c, line_nr);
 	return -1;
 
@@ -252,18 +273,18 @@ char next_state(char curr_state, char c, struct token **last, char *buf, int *i)
 	    return 9;
 	}
 	if (c == ')') {
-	    cut(last, buf, i, T_INT);
+	    cut(last, buf, i, T_ATOM);
 	    buf[(*i)++] = c;
 	    cut(last, buf, i, T_CPAR);
 	    return 0;
 	}
 	if (c == '\t' || c == ' ') {
-	    cut(last, buf, i, T_INT);
+	    cut(last, buf, i, T_ATOM);
 	    return 5;
 	}
 	if (c == '\n') {
 	    ++line_nr;
-	    cut(last, buf, i, T_INT);
+	    cut(last, buf, i, T_ATOM);
 	    return 5;
 	}
 	UNACC(last, c, line_nr);
@@ -291,35 +312,71 @@ char next_state(char curr_state, char c, struct token **last, char *buf, int *i)
 	    return 10;
 	}
 	if (c == ')') {
-	    cut(last, buf, i, T_FLOAT);
+	    cut(last, buf, i, T_ATOM);
 	    buf[(*i)++] = c;
 	    cut(last, buf, i, T_CPAR);
 	    return 0;
 	}
 	if (c == '\t' || c == ' ') {
-	    cut(last, buf, i, T_FLOAT);
+	    cut(last, buf, i, T_ATOM);
 	    return 5;
 	}
 	if (c == '\n') {
 	    ++line_nr;
-	    cut(last, buf, i, T_FLOAT);
+	    cut(last, buf, i, T_ATOM);
 	    return 5;
+	}
+	UNACC(last, c, line_nr);
+	return -1;
+
+    case 11:
+	if (c == '\0') {
+	    UNACC(last, '!', line_nr);
+	    return -1;
+	}
+	if (c == '\"') {
+	    cut(last, buf, i, T_ATOM);
+	    return 12;
+	}
+	buf[(*i)++] = c;
+	return 11;
+
+    case 12:
+	if (c == '\n' || c == '\t' || c == ' ') {
+	    return 5;
+	}
+	if (c == ')') {
+	    buf[(*i)++] = c;
+	    cut(last, buf, i, T_CPAR);
+	    return 0;
 	}
 	UNACC(last, c, line_nr);
 	return -1;
     }
 
+
     return -1;
 }
 
-char *lexer_next(struct token **t)
+struct token *lexer_next(struct token **t)
 {
-    if (!(*t)->data) return NULL;
+    if (!(*t)) return NULL;
 
-    char *retval = (*t)->data;
-    struct token *tmp = (*t)->next;
-    *t = tmp;
-    return retval;
+    struct token *tmp = *t;
+    *t = (*t)->next;
+    return tmp;
+}
+
+char *lexer_token_data(struct token *t)
+{
+    if (!t) return NULL;
+    return t->data;
+}
+
+char lexer_token_tag(struct token *t)
+{
+    if (!t) return T_EOF;
+    return t->type;
 }
 
 struct token *lexer_tokenizer(char *str)

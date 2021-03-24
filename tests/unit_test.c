@@ -18,10 +18,10 @@ void test1(void)
     struct token *root = lexer_tokenizer("(hello world)");
     struct token *cursor = root;
 
-    CU_ASSERT_STRING_EQUAL(lexer_next(&cursor), "(");
-    CU_ASSERT_STRING_EQUAL(lexer_next(&cursor), "hello");
-    CU_ASSERT_STRING_EQUAL(lexer_next(&cursor), "world");
-    CU_ASSERT_STRING_EQUAL(lexer_next(&cursor), ")");
+    CU_ASSERT_EQUAL(lexer_token_tag(lexer_next(&cursor)), T_OPAR);
+    CU_ASSERT_STRING_EQUAL(lexer_token_data(lexer_next(&cursor)), "hello");
+    CU_ASSERT_STRING_EQUAL(lexer_token_data(lexer_next(&cursor)), "world");
+    CU_ASSERT_EQUAL(lexer_token_tag(lexer_next(&cursor)), T_CPAR);
 
     lexer_free(root);
 }
@@ -32,19 +32,32 @@ void test2(void)
     struct token *root = lexer_tokenizer("(fun () -3.0 144)");
     struct token *cursor = root;
 
-    CU_ASSERT_STRING_EQUAL(lexer_next(&cursor), "(");
-    CU_ASSERT_STRING_EQUAL(lexer_next(&cursor), "fun");
-    CU_ASSERT_STRING_EQUAL(lexer_next(&cursor), "(");
-    CU_ASSERT_STRING_EQUAL(lexer_next(&cursor), ")");
-    CU_ASSERT_STRING_EQUAL(lexer_next(&cursor), "-3.0");
-    CU_ASSERT_STRING_EQUAL(lexer_next(&cursor), "144");
-    CU_ASSERT_STRING_EQUAL(lexer_next(&cursor), ")");
+    CU_ASSERT_EQUAL(lexer_token_tag(lexer_next(&cursor)), T_OPAR);
+    CU_ASSERT_STRING_EQUAL(lexer_token_data(lexer_next(&cursor)), "fun");
+    CU_ASSERT_EQUAL(lexer_token_tag(lexer_next(&cursor)), T_OPAR);
+    CU_ASSERT_EQUAL(lexer_token_tag(lexer_next(&cursor)), T_CPAR);
+    CU_ASSERT_STRING_EQUAL(lexer_token_data(lexer_next(&cursor)), "-3.0");
+    CU_ASSERT_STRING_EQUAL(lexer_token_data(lexer_next(&cursor)), "144");
+    CU_ASSERT_EQUAL(lexer_token_tag(lexer_next(&cursor)), T_CPAR);
 
     lexer_free(root);
 }
 
-const char *test3_desc = "3: \"\"";
+const char *test3_desc = "3: \"(\"hello world\")\"";
 void test3(void)
+{
+    struct token *root = lexer_tokenizer("(\"hello world\")");
+    struct token *cursor = root;
+
+    CU_ASSERT_EQUAL(lexer_token_tag(lexer_next(&cursor)), T_OPAR);
+    CU_ASSERT_STRING_EQUAL(lexer_token_data(lexer_next(&cursor)), "hello world");
+    CU_ASSERT_EQUAL(lexer_token_tag(lexer_next(&cursor)), T_CPAR);
+
+    lexer_free(root);
+}
+
+const char *test4_desc = "4: \"\"";
+void test4(void)
 {
     struct token *root = lexer_tokenizer("(hello world)");
     struct token *cursor = root;
@@ -72,8 +85,9 @@ int main(void)
 	    return CU_get_error();
     }
     if (
-        !CU_add_test(test_suite, test1_desc, test1) ||
-        !CU_add_test(test_suite, test2_desc, test2)
+        !CU_add_test(test_suite, test1_desc, test1)
+	|| !CU_add_test(test_suite, test2_desc, test2)
+        || !CU_add_test(test_suite, test3_desc, test3)
 	) {
 	    CU_cleanup_registry();
 	    return CU_get_error();
