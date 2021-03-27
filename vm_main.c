@@ -14,11 +14,12 @@ int main(int argc, char *argv[])
 	STORE_SI,
 	'x',
 	0,
-	PUSH_SI,
-	2,
-	0,
-	0,
-	0,
+	READ_SI,
+	/* PUSH_SI, */
+	/* 2, */
+	/* 0, */
+	/* 0, */
+	/* 0, */
 	STORE_SI,
 	'y',
 	0,

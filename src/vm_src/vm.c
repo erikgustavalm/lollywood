@@ -99,6 +99,13 @@ void run_opcode(uint8_t opcode, struct env *e)
 	stack_ptr += int_size;
 	break;
 
+    case READ_SI:
+	a = (int *)(stack + stack_ptr);
+	scanf("%d", a);
+	stack_ptr += int_size;
+	printf("Read signed integer: %d from stdin, sp: %ld\n", *a, stack_ptr);
+	break;
+
     default:
 	break;
     }
