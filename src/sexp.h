@@ -2,13 +2,13 @@
 #define SEXP_H
 
 #include <stdlib.h>
+#include "common.h"
 
-struct sexp {
+struct ccell {
     unsigned char *car;
     struct sexp *cdr;
-    unsigned char type;
 };
 
-struct sexp sexp_add_atom(struct sexp **last, char type, unsigned char *data);
+struct ccell sexp_add_atom(struct ccell **last, unsigned char *data);
 
 #endif /* SEXP_H */
