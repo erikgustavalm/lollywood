@@ -106,6 +106,85 @@ void run_opcode(uint8_t opcode, struct env *e)
 	printf("Read signed integer: %d from stdin, sp: %ld\n", *a, stack_ptr);
 	break;
 
+    case COSI_ZERO: // Check if topmost signed int is zero, add a byte as a result
+	a = (int *)(stack + stack_ptr - int_size);
+	++stack_ptr;
+	c = (char *)(stack + stack_ptr);
+	switch (*a) {
+	case 0:
+	    *c = 1;
+	    break;
+	default:
+	    *c = 0;
+	    break;
+	}
+	break;
+
+    case COSI_NOT_ZERO:
+	a = (int *)(stack + stack_ptr - int_size);
+	++stack_ptr;
+	c = (char *)(stack + stack_ptr);
+	switch (*a) {
+	case 0:
+	    *c = 0;
+	    break;
+	default:
+	    *c = 1;
+	    break;
+	}
+	break;
+
+    case COSI_NEQ:
+	a = (int *)(stack + stack_ptr - 2*int_size);
+	b = (int *)(stack + stack_ptr - int_size);
+	*a -= (*b);
+	++stack_ptr;
+	c = (char *)(stack + stack_ptr);
+	switch (*a) {
+	case 0:
+	    *c = 0;
+	    break;
+	default:
+	    *c = 1;
+	    break;
+	}
+	break;
+
+    case COSI_EQ:
+	a = (int *)(stack + stack_ptr - 2*int_size);
+	b = (int *)(stack + stack_ptr - int_size);
+	*a -= (*b);
+	++stack_ptr;
+	c = (char *)(stack + stack_ptr);
+	switch (*a) {
+	case 0:
+	    *c = 1;
+	    break;
+	default:
+	    *c = 0;
+	    break;
+	}
+	break;
+
+    case BRAT:
+	c = (char *)(stack + stack_ptr);
+	--stack_ptr;
+	switch (*c) {
+	case 0:
+	    instruction_ptr += int_size;
+	    break;
+	default:
+	    a = (int *)&program_data[instruction_ptr];
+	    instruction_ptr = *a;
+	    break;
+	}
+	break;
+
+    case JUMP:
+	a = (int *)&program_data[instruction_ptr];
+	instruction_ptr = *a;
+	break;
+
     default:
 	break;
     }

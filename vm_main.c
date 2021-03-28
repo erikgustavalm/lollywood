@@ -6,30 +6,17 @@
 int main(int argc, char *argv[])
 {
     uint8_t program[] = {
+	JUMP,
+	16,0,0,0,
 	PUSH_SI,
-	0,
-	3,
-	0,
-	0,
-	STORE_SI,
-	'x',
-	0,
+	100,0,0,0,
+	ADD_SI,
+	JUMP,
+	22,0,0,0,
 	READ_SI,
-	/* PUSH_SI, */
-	/* 2, */
-	/* 0, */
-	/* 0, */
-	/* 0, */
-	STORE_SI,
-	'y',
-	0,
-	LOAD_SI,
-	'x',
-	0,
-	LOAD_SI,
-	'y',
-	0,
-	ADD_SI
+	JUMP,
+	5,0,0,0,
+	PRINT_SI,
     };
 
     size_t len = sizeof(program) / sizeof(program[0]);
