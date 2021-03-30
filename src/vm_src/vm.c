@@ -11,7 +11,7 @@
 uint8_t *stack;
 size_t stack_ptr;
 
-const char int_size = sizeof(int);
+const char num_size = sizeof(double);
 
 uint8_t *program_data;
 
@@ -26,19 +26,22 @@ void init()
 
 void run_opcode(uint8_t opcode, struct env *e)
 {
-    int *a, *b;
+    double *a, *b;
+    int *ip;
     char *c;
     char *start;
+    int debug_int;
+    uint64_t *ptr;
 
     ++instruction_ptr;
 
     switch (opcode) {
-    case PUSH_SI:
-	a = (int *)(stack + stack_ptr);
-	*a = *(int *)&program_data[instruction_ptr];
-	stack_ptr += int_size;
-	instruction_ptr += int_size;
-	printf("Pushed signed integer: %d to stack, sp: %ld\n", *a, stack_ptr);
+    case PUSH_NUM:
+	a = (double *)(stack + stack_ptr);
+	*a = *(double *)&program_data[instruction_ptr];
+	stack_ptr += num_size;
+	instruction_ptr += num_size;
+	printf("Pushed num: %lf to stack, sp: %ld\n", *a, stack_ptr);
 	break;
 
     case PUSH_STR:
@@ -55,62 +58,79 @@ void run_opcode(uint8_t opcode, struct env *e)
 	printf("Pushed string: \"%s\" to stack, sp: %ld\n", start, stack_ptr);
 	break;
 
-    case ADD_SI:
-	a = (int *)(stack + stack_ptr - 2*int_size);
-	b = (int *)(stack + stack_ptr - int_size);
-	stack_ptr -= int_size;
+    case ADD_NUM:
+	a = (double *)(stack + stack_ptr - 2*num_size);
+	b = (double *)(stack + stack_ptr - num_size);
+	stack_ptr -= num_size;
 	*a = (*a) + (*b);
-	printf("Added two signed integers, result: %d, sp: %ld\n", *a, stack_ptr);
+	printf("Added two nums, result: %lf, sp: %ld\n", *a, stack_ptr);
 	break;
 
-    case MULT_SI:
-	a = (int *)(stack + stack_ptr - 2*int_size);
-	b = (int *)(stack + stack_ptr - int_size);
-	stack_ptr -= int_size;
+    case MULT_NUM:
+	a = (double *)(stack + stack_ptr - 2*num_size);
+	b = (double *)(stack + stack_ptr - num_size);
+	stack_ptr -= num_size;
 	*a = (*a) * (*b);
-	printf("Multiplied two signed integers, result: %d, sp: %ld\n", *a, stack_ptr);
+	printf("Multiplied two nums, result: %lf, sp: %ld\n", *a, stack_ptr);
 	break;
 
-    case SUB_SI:
-	a = (int *)(stack + stack_ptr - 2*int_size);
-	b = (int *)(stack + stack_ptr - int_size);
-	stack_ptr -= int_size;
+    case SUB_NUM:
+	a = (double *)(stack + stack_ptr - 2*num_size);
+	b = (double *)(stack + stack_ptr - num_size);
+	stack_ptr -= num_size;
 	*a = (*a) - (*b);
-	printf("Subtract two signed integers, result: %d, sp: %ld\n", *a, stack_ptr);
+	printf("Subtract two nums, result: %lf, sp: %ld\n", *a, stack_ptr);
 	break;
 
-    case PRINT_SI:
-	a = (int *)(stack + stack_ptr - int_size);
-	printf("%d\n", *a);
+    case PRINT_NUM:
+	a = (double *)(stack + stack_ptr - num_size);
+	printf("%lf\n", *a);
 	break;
 
-    case STORE_SI:
-	stack_ptr -= int_size;
-	a = (int *)(stack + stack_ptr);
+    case STORE_NUM:
+	stack_ptr -= num_size;
+	a = (double *)(stack + stack_ptr);
 	c = (char *)&program_data[instruction_ptr];
-	env_add(e, c, (uint8_t *)a, int_size);
-	printf("Stored signed integer \"%s\": %d in environment, sp: %ld\n", c, *a, stack_ptr);
+	env_add_atom(e, c, (uint8_t *)a, num_size);
+	printf("Stored num \"%s\": %lf in environment, sp: %ld\n", c, *a, stack_ptr);
 	break;
+    case STORE_CONS:
 
-    case LOAD_SI:
+	break;
+    case LOAD_CAR:
 	c = (char *)&program_data[instruction_ptr];
-	env_lookup(e, c, (stack + stack_ptr), int_size);
-	printf("Loaded signed integer \"%s\": %d from environment, sp: %ld\n", c, *(int *)(stack + stack_ptr), stack_ptr + int_size);
-	stack_ptr += int_size;
+	debug_int = stack_ptr;
+	stack_ptr += env_lookup_car(e, c, (stack + stack_ptr));
+	printf("Loaded car address \"%s\": %ld from environment, sp: %ld\n", c, *(uint64_t *)(stack + debug_int), stack_ptr);
 	break;
 
-    case READ_SI:
-	a = (int *)(stack + stack_ptr);
-	scanf("%d", a);
-	stack_ptr += int_size;
-	printf("Read signed integer: %d from stdin, sp: %ld\n", *a, stack_ptr);
+    case LOAD_CDR:
+	c = (char *)&program_data[instruction_ptr];
+	debug_int = stack_ptr;
+	stack_ptr += env_lookup_cdr(e, c, (stack + stack_ptr));
+	printf("Loaded cdr: %ld from \"%s\", sp: %ld\n", *(long int *)(stack + debug_int), c, stack_ptr);
 	break;
 
-    case COSI_ZERO: // Check if topmost signed int is zero, add a byte as a result
-	a = (int *)(stack + stack_ptr - int_size);
+    case LOAD_OFF:
+	stack_ptr -= num_size;
+	ptr = (uint64_t *)(stack + stack_ptr);
+	debug_int = stack_ptr;
+	stack_ptr += env_lookup_ptr(e, *ptr, (stack + stack_ptr));
+	printf("Loaded car: %lf from pointer %lx, sp: %ld\n", *(double *)(stack + debug_int), *ptr, stack_ptr);
+	break;
+
+    case READ_NUM:
+	a = (double *)(stack + stack_ptr);
+	scanf("%lf", a);
+	stack_ptr += num_size;
+	printf("Read num: %lf from stdin, sp: %ld\n", *a, stack_ptr);
+	break;
+
+    case CONUM_ZERO: // Check if topmost numgned int is zero, add a byte as a result
+	a = (double *)(stack + stack_ptr - num_size);
 	++stack_ptr;
 	c = (char *)(stack + stack_ptr);
-	switch (*a) {
+	switch (*(int *)a) {
 	case 0:
 	    *c = 1;
 	    break;
@@ -120,11 +140,11 @@ void run_opcode(uint8_t opcode, struct env *e)
 	}
 	break;
 
-    case COSI_NOT_ZERO:
-	a = (int *)(stack + stack_ptr - int_size);
+    case CONUM_NOT_ZERO:
+	a = (double *)(stack + stack_ptr - num_size);
 	++stack_ptr;
 	c = (char *)(stack + stack_ptr);
-	switch (*a) {
+	switch (*(int *)a) {
 	case 0:
 	    *c = 0;
 	    break;
@@ -134,13 +154,13 @@ void run_opcode(uint8_t opcode, struct env *e)
 	}
 	break;
 
-    case COSI_NEQ:
-	a = (int *)(stack + stack_ptr - 2*int_size);
-	b = (int *)(stack + stack_ptr - int_size);
+    case CONUM_NEQ:
+	a = (double *)(stack + stack_ptr - 2*num_size);
+	b = (double *)(stack + stack_ptr - num_size);
 	*a -= (*b);
 	++stack_ptr;
 	c = (char *)(stack + stack_ptr);
-	switch (*a) {
+	switch (*(int *)a) {
 	case 0:
 	    *c = 0;
 	    break;
@@ -150,13 +170,13 @@ void run_opcode(uint8_t opcode, struct env *e)
 	}
 	break;
 
-    case COSI_EQ:
-	a = (int *)(stack + stack_ptr - 2*int_size);
-	b = (int *)(stack + stack_ptr - int_size);
+    case CONUM_EQ:
+	a = (double *)(stack + stack_ptr - 2*num_size);
+	b = (double *)(stack + stack_ptr - num_size);
 	*a -= (*b);
 	++stack_ptr;
 	c = (char *)(stack + stack_ptr);
-	switch (*a) {
+	switch (*(int *)a) {
 	case 0:
 	    *c = 1;
 	    break;
@@ -171,18 +191,18 @@ void run_opcode(uint8_t opcode, struct env *e)
 	--stack_ptr;
 	switch (*c) {
 	case 0:
-	    instruction_ptr += int_size;
+	    instruction_ptr += num_size;
 	    break;
 	default:
-	    a = (int *)&program_data[instruction_ptr];
-	    instruction_ptr = *a;
+	    ip = (int *)&program_data[instruction_ptr];
+	    instruction_ptr = *ip;
 	    break;
 	}
 	break;
 
     case JUMP:
-	a = (int *)&program_data[instruction_ptr];
-	instruction_ptr = *a;
+	ip = (int *)&program_data[instruction_ptr];
+	instruction_ptr = *ip;
 	break;
 
     default:

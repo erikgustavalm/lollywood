@@ -7,5 +7,6 @@
 
 struct sexp *parse_tokens(struct tokens *t);
 
+int parse_output_to_file(char *filename, struct sexp *s);
 
 #endif /* PARSER_H */
